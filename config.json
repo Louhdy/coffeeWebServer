@@ -1,0 +1,7 @@
+{
+    "connection_file": "connection.json",
+    "appAdmin": "Org1 Admin",    
+    "orgMSPID": "Org1MSP",
+    "caName": "org1ca-api.127-0-0-1.nip.io:8080",    
+    "gatewayDiscovery": { "enabled": true, "asLocalhost": false }
+  }
