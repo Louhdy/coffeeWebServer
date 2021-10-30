@@ -23,145 +23,56 @@ const config = JSON.parse(configJSON);
 //use this identity to query
 const appAdmin = config.appAdmin;
 
-//get all assets in world state
-app.get('/queryAll', async (req, res) => {
-
+app.post('/getObjectById', async (req, res) => {  
   let networkObj = await network.connectToNetwork(appAdmin);
-  let response = await network.invoke(networkObj, true, 'queryAll', '');
-  let parsedResponse = await JSON.parse(response);
+  let response = await network.getObjectById(networkObj, 'getObjectById', req.body.uuid);
+  let parsedResponse = await JSON.parse(response);  
   res.send(parsedResponse);
-
 });
 
-app.get('/getCurrentStanding', async (req, res) => {
-
-  let networkObj = await network.connectToNetwork(appAdmin);
-  let response = await network.invoke(networkObj, true, 'queryByObjectType', 'votableItem');
-  let parsedResponse = await JSON.parse(response);
-  console.log(parsedResponse);
-  res.send(parsedResponse);
-
-});
+app.post('/updateObjectById', async (req, res) => {
+  let networkObj = await network.connectToNetwork(appAdmin);  
+  let invokeResponse = await network.updateObjectById(networkObj, 'updateObjectById', req.body);
+  if (invokeResponse.error) {
+    res.send(invokeResponse.error);
+  } else {   
+    res.send(invokeResponse);
+  }
+})
 
 app.get('/getAllReceptions', async (req, res) => {
   let networkObj = await network.connectToNetwork(appAdmin);
-  let response = await network.getAllReceptions(networkObj, 'queryAll');
-  let parsedResponse = await JSON.parse(response);
+  let response = await network.getAllReceptions(networkObj, 'getAllReceptions');
+  let parsedResponse = await JSON.parse(response);  
   res.send(parsedResponse);
-})
+});
 
-app.post('/registerReception', async(req, res) =>{        
-    let receptionId = uuidv4();
-    let networkObj = await network.connectToNetwork(appAdmin);    
-
+app.post('/registerReception', async(req, res) =>{            
+    let uuid = uuidv4().toString();    
+    let networkObj = await network.connectToNetwork(appAdmin);
+    let response = await network.getAllReceptions(networkObj, 'getAllReceptions');
+    let parsedResponse = await JSON.parse(response);
+    if ( parsedResponse.length === 0 ) {
+      req.body.id = 1;
+    }
+    else {
+      req.body.id = parsedResponse.at(-1).Record.newReception.id + 1;                  
+    }    
     if (networkObj.error) {
       res.send(networkObj.error);
-    }    
-
-    req.body = JSON.stringify(req.body);    
-    let args = [req.body];    
-    let invokeResponse = await network.registerNewReception(networkObj, 'createNewReception', receptionId, args);
-    
+    }                 
+    networkObj = await network.connectToNetwork(appAdmin);
+    req.body.physicalId = uuidv4().toString();
+    req.body.sensorialId = uuidv4().toString();
+    req.body.toastId = uuidv4().toString();
+    req.body.packingId = uuidv4().toString();
+    req.body.distributionId = uuidv4().toString();
+    let invokeResponse = await network.registerNewReception(networkObj, 'createNewReception', uuid, req.body);    
     if (invokeResponse.error) {
       res.send(invokeResponse.error);
     } else {   
       res.send(invokeResponse);
     }
-
-});
-
-//get voter info, create voter object, and update state with their voterId
-app.post('/registerVoter', async (req, res) => {
-  console.log('req.body: ');
-  console.log(req.body);
-  let voterId = req.body.voterId;
-
-  //first create the identity for the voter and add to wallet
-  let response = await network.registerVoter(voterId, req.body.registrarId, req.body.firstName, req.body.lastName);
-  console.log('response from registerVoter: ');
-  console.log(response);
-  if (response.error) {
-    res.send(response.error);
-  } else {
-    console.log('req.body.voterId');
-    console.log(req.body.voterId);
-    let networkObj = await network.connectToNetwork(voterId);
-    console.log('networkobj: ');
-    console.log(networkObj);
-
-    if (networkObj.error) {
-      res.send(networkObj.error);
-    }
-    console.log('network obj');
-    console.log(util.inspect(networkObj));
-
-
-    req.body = JSON.stringify(req.body);
-    let args = [req.body];
-    //connect to network and update the state with voterId  
-
-    let invokeResponse = await network.invoke(networkObj, false, 'createVoter', args);
-    
-    if (invokeResponse.error) {
-      res.send(invokeResponse.error);
-    } else {
-
-      console.log('after network.invoke ');
-      let parsedResponse = JSON.parse(invokeResponse);
-      parsedResponse += '. Use voterId to login above.';
-      res.send(parsedResponse);
-
-    }
-
-  }
-
-
-});
-
-//used as a way to login the voter to the app and make sure they haven't voted before 
-app.post('/validateVoter', async (req, res) => {
-  console.log('req.body: ');
-  console.log(req.body);
-  let networkObj = await network.connectToNetwork(req.body.voterId);
-  console.log('networkobj: ');
-  console.log(util.inspect(networkObj));
-
-  if (networkObj.error) {
-    res.send(networkObj);
-  }
-
-  let invokeResponse = await network.invoke(networkObj, true, 'readMyAsset', req.body.voterId);
-  if (invokeResponse.error) {
-    res.send(invokeResponse);
-  } else {
-    console.log('after network.invoke ');
-    let parsedResponse = await JSON.parse(invokeResponse);
-    if (parsedResponse.ballotCast) {
-      let response = {};
-      response.error = 'This voter has already cast a ballot, we cannot allow double-voting!';
-      res.send(response);
-    }
-    // let response = `Voter with voterId ${parsedResponse.voterId} is ready to cast a ballot.`  
-    res.send(parsedResponse);
-  }
-
-});
-
-app.post('/queryByKey', async (req, res) => {
-  console.log('req.body: ');
-  console.log(req.body);
-
-  let networkObj = await network.connectToNetwork(appAdmin);
-  console.log('after network OBj');
-  let response = await network.invoke(networkObj, true, 'readMyAsset', req.body.key);
-  response = JSON.parse(response);
-  if (response.error) {
-    console.log('inside eRRRRR');
-    res.send(response.error);
-  } else {
-    console.log('inside ELSE');
-    res.send(response);
-  }
 });
 
 
