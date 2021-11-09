@@ -99,7 +99,7 @@ exports.updateObjectById = async function (networkObj, func, args) {
   try {                    
     let uuid = args.object.uuid;  
     args = JSON.stringify(args.object.object);            
-    console.log(args);
+    console.log(JSON.parse(args));
     let response = await networkObj.contract.submitTransaction(func, uuid, args);            
     console.log(`Transaction ${func} with args has been evaluated`);
     await networkObj.gateway.disconnect();    
